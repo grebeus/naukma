@@ -1,8 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
-using System.IO.MemoryMappedFiles;
-using System.Text;
 using System.Text.RegularExpressions;
 
 namespace Dictionary
@@ -16,8 +14,9 @@ namespace Dictionary
 
             string folderPath = GetFolderPath(args); //Folder path is the first argument
             string dictionaryFile = GetAndDeleteDictionaryFile(args, folderPath); //Dictionary file is the secund argument
-            
-            List<string> tokens = new List<string>();
+
+
+            HashSet<string> tokens = new HashSet<string>();
 
             int wordsCount = 0;
             foreach (string filePath in Directory.GetFiles(folderPath))
@@ -56,7 +55,7 @@ namespace Dictionary
             return dictionaryFile;
         }
 
-        static int TokenizeFileAndGetWordsCount(string filePath, ref List<string> tokens)
+        static int TokenizeFileAndGetWordsCount(string filePath, ref HashSet<string> tokens)
         {
             {
                 Console.WriteLine(DateTime.UtcNow.ToLongTimeString() + " Processing file: " + filePath);
@@ -72,7 +71,7 @@ namespace Dictionary
             }
         }
 
-        static void SaveDictionaryFile(ref List<string> tokens, string dictionaryFile)
+        static void SaveDictionaryFile(ref HashSet<string> tokens, string dictionaryFile)
         {
             Console.WriteLine(DateTime.UtcNow.ToLongTimeString() + " Saving dictionary: " + dictionaryFile);
 
