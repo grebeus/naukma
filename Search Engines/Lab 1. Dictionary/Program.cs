@@ -7,25 +7,24 @@ namespace Dictionary
 {
     class Program
     {
+        public static string inputFilesFolder = "c:\\Test\\NaUKMA\\Books\\1";
+        public static string outputDictionaryFile = "Dictionary.txt";
+
+        //public static List<string> tokens = new List<string>();
+        public static HashSet<string> tokens = new HashSet<string>();
+        //public static SortedSet<string> tokens = new SortedSet<string>();
+        //public static SortedDictionary<string, List<int>> tokens = new SortedDictionary<string, List<int>>();
+
+        public static int wordsCount = 0;
         static void Main(string[] args)
         {
             DateTime startTime = DateTime.UtcNow;
             Console.WriteLine(DateTime.UtcNow.ToLongTimeString() + " Process started.");
-
-            string folderPath = GetFolderPath(args); //Folder path is the first argument
-            string dictionaryFile = GetAndDeleteDictionaryFile(args, folderPath); //Dictionary file is the secund argument
-
-
-            HashSet<string> tokens = new HashSet<string>();
-
-            int wordsCount = 0;
-            foreach (string filePath in Directory.GetFiles(folderPath))
-                wordsCount += TokenizeFileAndGetWordsCount(filePath, ref tokens);
             
-            SaveDictionaryFile(ref tokens, dictionaryFile);
+            ProcessArguments(args);
+            GenerateDictionary();
 
             Console.WriteLine(DateTime.UtcNow.ToLongTimeString() + " Process completed in " + Math.Round((DateTime.UtcNow - startTime).TotalSeconds, 2) + " seconds.");
-
             Console.WriteLine();
             Console.WriteLine("Collection size (words count): " + wordsCount + ".");
             Console.WriteLine("Dictionary size (tokens count): " + tokens.Count + ".");
@@ -34,50 +33,76 @@ namespace Dictionary
             Console.ReadKey();
         }
 
-        static string GetFolderPath(string[] args)
+        private static void ProcessArguments(string[] args)
+        {
+            SetInputFilesFolder(args); // Input folder path expected to be the first argument
+            SetAndDeleteOutputDictionaryFile(args); //Dictionary file is the second argument
+        }
+
+        static void SetInputFilesFolder(string[] args)
         {
             if (args.Length > 0)
-                return args[0];
-            else
-                return "c:\\Test\\NaUKMA\\Books\\1";
+                inputFilesFolder = args[0];
         }
 
-        static string GetAndDeleteDictionaryFile(string[] args, string folderPath)
+        static void SetAndDeleteOutputDictionaryFile(string[] args)
         {
-            string dictionaryFile = Path.Join(folderPath, "Dictionary.txt");
-            if (args.Length == 2)
-            {
-                dictionaryFile = args[1];
-            }
-            if (File.Exists(dictionaryFile))
-                File.Delete(dictionaryFile);
+            if (args.Length > 1)
+                outputDictionaryFile = args[1];
 
-            return dictionaryFile;
+            if (!outputDictionaryFile.Contains('/'))
+                outputDictionaryFile = Path.Join(inputFilesFolder, outputDictionaryFile);
+
+            if (File.Exists(outputDictionaryFile))
+                File.Delete(outputDictionaryFile);
         }
 
-        static int TokenizeFileAndGetWordsCount(string filePath, ref HashSet<string> tokens)
+        private static void GenerateDictionary()
         {
+            foreach (string filePath in Directory.GetFiles(inputFilesFolder))
             {
                 Console.WriteLine(DateTime.UtcNow.ToLongTimeString() + " Processing file: " + filePath);
-
-                string[] words = Regex.Split(File.ReadAllText(filePath), @"\W");
-
-                foreach (string word in words)
-                    if (!(String.IsNullOrWhiteSpace(word) || String.IsNullOrEmpty(word)))
-                        if (!tokens.Contains(word.ToLower()))
-                            tokens.Add(word.ToLower());
-                
-                return words.Length;
+                TokenizeFileAndCountWords(filePath);
             }
+
+            Console.WriteLine(DateTime.UtcNow.ToLongTimeString() + " Saving dictionary: " + outputDictionaryFile);
+            SaveDictionaryFile();
         }
 
-        static void SaveDictionaryFile(ref HashSet<string> tokens, string dictionaryFile)
+        private static void TokenizeFileAndCountWords(string filePath)
         {
-            Console.WriteLine(DateTime.UtcNow.ToLongTimeString() + " Saving dictionary: " + dictionaryFile);
+            string[] words = SplitFileContentByWords(filePath);
 
-            using (TextWriter textWriter = new StreamWriter(dictionaryFile))
+            foreach (string word in words)
+                AddTokenToDictionary(word);
+
+            wordsCount += words.Length;
+        }
+
+        private static string[] SplitFileContentByWords(string filePath)
+        {
+            return Regex.Split(File.ReadAllText(filePath), @"\W");
+        }
+        private static void AddTokenToDictionary(string word)
+        {
+            if (IsNotBlank(word))
+                if (!tokens.Contains(word.ToLower()))
+                    tokens.Add(word.ToLower());
+                //if (!tokens.ContainsKey(word.ToLower()))
+                //    tokens.Add(word.ToLower(), new List<int>());
+        }
+
+        private static bool IsNotBlank(string word)
+        {
+            return !(String.IsNullOrWhiteSpace(word) || String.IsNullOrEmpty(word));
+        }
+
+        private static void SaveDictionaryFile()
+        {
+            using (TextWriter textWriter = new StreamWriter(outputDictionaryFile))
             {
                 foreach (string token in tokens)
+                //foreach (string token in tokens.Keys)
                     textWriter.WriteLine(token);
             }
         }
