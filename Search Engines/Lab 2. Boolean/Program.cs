@@ -11,8 +11,8 @@ namespace Dictionary
 {
     class Program
     {
-        public static string collectionFolder = "F:\\NaUKMA\\Semester 1.2\\Information Retrieval\\Collection (test)";
-        public static string systemFolder = collectionFolder + "\\.system";
+        public static string collectionFolder = "F:\\NaUKMA\\Semester 1.2\\Information Retrieval\\Collection (small)";
+        public static readonly string systemFolder = ".system";
 
         public static Dictionary<int, string> fileCollection = new Dictionary<int, string>();
         public static int collectionSize = 0;
@@ -28,9 +28,6 @@ namespace Dictionary
 
         static void Main(string[] args)
         {
-            //Console.InputEncoding = Encoding.Default;
-            Console.OutputEncoding = Encoding.Default;
-
             SetCollectionFolder(args);
             ClearSystemFiles();
 
@@ -38,6 +35,7 @@ namespace Dictionary
             IndexCollection();
 
             Console.Write(searchInstruction);
+            Console.OutputEncoding = Encoding.UTF8;
             string request = Console.ReadLine();
 
             while (!request.Trim().ToLower().Equals("exit"))
@@ -55,14 +53,21 @@ namespace Dictionary
         {
             if (args.Length > 0)
                 collectionFolder = args[0].TrimEnd('\\');
+            else 
+            {
+                Console.WriteLine("Enter the folder that stores collection or press ENTER to use default: ");
+                string consoleInput = Console.ReadLine();
+                if (!String.IsNullOrEmpty(consoleInput))
+                    collectionFolder = consoleInput.TrimEnd('\\');
+            }
         }
 
         static void ClearSystemFiles()
         {
-            if (Directory.Exists(systemFolder))
-                Directory.Delete(systemFolder, true);
+            if (Directory.Exists(collectionFolder + '\\' + systemFolder))
+                Directory.Delete(collectionFolder + '\\' + systemFolder, true);
 
-            Directory.CreateDirectory(systemFolder);
+            Directory.CreateDirectory(collectionFolder + '\\' + systemFolder);
         }
 
         private static void TaxonomizeCollection()
@@ -97,13 +102,25 @@ namespace Dictionary
 
             Console.WriteLine("\nDictionary created in " + Math.Round((DateTime.UtcNow - startTime).TotalSeconds, 2) + " seconds:");
             
-            string jsonFile = systemFolder + "\\dictionary.json";
+            string jsonFile = collectionFolder + '\\' + systemFolder + "\\dictionary.json";
             File.WriteAllText(jsonFile, JsonConvert.SerializeObject(dictionary, Formatting.Indented));
             Console.WriteLine("> " + jsonFile + "  " + Math.Round((decimal)(new FileInfo(jsonFile)).Length / 1024) + " KB");
 
             Console.WriteLine("Collection size (words count): " + wordsCount + ".");
             Console.WriteLine("Dictionary size (tokens count): " + dictionary.Count + ".");
         }
+
+        private static string[] SplitFileContentByWords(string filePath)
+        {
+            return Regex.Split(File.ReadAllText(filePath, Encoding.UTF8), @"\W");
+        }
+
+        private static string Tokenize(string word)
+        {
+            //return Regex.Replace(word.ToLower(), "[_0-9]", string.Empty);
+            return Regex.Replace(word.ToLower(), "[_]", string.Empty);
+        }
+
         private static void AddTokenToDictionary(string token)
         {
             if (String.IsNullOrWhiteSpace(token) || String.IsNullOrEmpty(token))
@@ -122,7 +139,7 @@ namespace Dictionary
 
             Console.WriteLine("\nIncedence matrix created in " + Math.Round((DateTime.UtcNow - startTime).TotalSeconds, 2) + " seconds:");
             
-            string jsonFile = systemFolder + "\\incidence_matrix.json";
+            string jsonFile = collectionFolder + '\\' + systemFolder + "\\incidence_matrix.json";
             SortedDictionary<string, List<byte>> incidenceLists = new SortedDictionary<string, List<byte>>(); //bools converted to 0,1 representation to compare collections by json size
             foreach (KeyValuePair<string, bool[]> incidenceArray in incidenceMatrix)
                 incidenceLists.Add(incidenceArray.Key, incidenceArray.Value.Select(x => Convert.ToByte(x)).ToList());
@@ -151,7 +168,7 @@ namespace Dictionary
 
             Console.WriteLine("\nInverted index created in " + Math.Round((DateTime.UtcNow - startTime).TotalSeconds, 2) + " seconds:");
 
-            string jsonFile = systemFolder + "\\inverted_index.json";
+            string jsonFile = collectionFolder + '\\' + systemFolder + "\\inverted_index.json";
             File.WriteAllText(jsonFile, JsonConvert.SerializeObject(invertedIndex, Formatting.Indented));
             Console.WriteLine("> " + jsonFile + "  " + Math.Round((decimal)(new FileInfo(jsonFile)).Length / 1024) + " KB");
         }
@@ -170,34 +187,6 @@ namespace Dictionary
                 invertedIndex[token].Sort();
             }
         }
-
-
-
-        private static string[] SplitFileContentByWords(string filePath)
-        {
-            return Regex.Split(File.ReadAllText(filePath, Encoding.Default), @"\W");
-        }
-        
-        private static string Tokenize(string word)
-        {
-            //return Regex.Replace(word.ToLower(), "[_0-9]", string.Empty);
-            return Regex.Replace(word.ToLower(), "[_]", string.Empty);
-        }
-
-        private static void AddTokenToIndexes(string token, int fileNumber)
-        {
-            if (String.IsNullOrWhiteSpace(token) || String.IsNullOrEmpty(token))
-                return;
-
-            AddTokenToDictionary(token);
-            AddTokenToIncidenceMatrix(token, fileNumber);
-            AddTokenToInvertedIndex(token, fileNumber);
-        }
-        
-        
-
-
-
 
 
         // Search engine
@@ -244,11 +233,7 @@ namespace Dictionary
                         else if (and)
                             for (int i = 0; i < collectionSize; i++)
                                 searchResult[i] = searchResult[i] && currentMatch[i];
-                        //searchResult = searchResult.Join(currentMatch, x => x, y => y, (x, y) => x && y).ToArray();
-                        //searchResult = searchResult.SelectMany(x => currentMatch, (x, y) => x && y).ToArray();
                         else if (or)
-                            //searchResult = searchResult.Join(currentMatch, x => x, y => y, (x, y) => x || y).ToArray();
-                            //searchResult = searchResult.SelectMany(x => currentMatch, (x, y) => x || y).ToArray();
                             for (int i = 0; i < collectionSize; i++)
                                 searchResult[i] = searchResult[i] || currentMatch[i];
 
@@ -332,36 +317,6 @@ namespace Dictionary
             Console.WriteLine("\nSearch results (inverted index), completed in " + durationMs + " ms:");
             foreach (int fileNumber in fileNumbers)
                 Console.WriteLine("> " + fileCollection[fileNumber].ToString());
-        }
-
-        // Managing lists
-        private static List<int> InvertedIndexesAnd(IEnumerable<int> set1, IEnumerable<int> set2)
-        {
-            return set1.Intersect(set2).ToList();
-        }
-
-        private static List<int> InvertedIndexesOr(IEnumerable<int> set1, IEnumerable<int> set2)
-        {
-            return set1.Union(set2).ToList();
-        }
-        private static List<int> InvertedIndexesNot(IEnumerable<int> set)
-        {
-            return fileCollection.Keys.Except(set).ToList();
-        }
-
-        // Managing bool arrays
-        private static bool[] IncidenceMatrixAnd(bool[] array1, bool[] array2)
-        {
-            return array1.SelectMany(x => array2, (x,y) => x && y).ToArray();
-        }
-
-        private static bool[] IncidenceMatrixOr(bool[] array1, bool[] array2)
-        {
-            return array1.SelectMany(x => array2, (x, y) => x || y).ToArray();
-        }
-        private static bool[] IncidenceMatrixNot(bool[] array)
-        {
-            return array.Select(x => !x).ToArray();
         }
     }
 }
