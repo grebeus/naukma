@@ -145,65 +145,10 @@ namespace Dictionary
         // Search engines
         private static void IncidenceMatrixSearch(string request)
         {
-            bool doOr = false;
-            bool doAnd = false;
-            bool doNot = false;
-            bool[] resultingMatch = new bool[collectionSize];
-            
-            string[] requestParts = request.Split(' ');
-            foreach(string requestPart in requestParts)
-            {
-                bool[] currentMatch = new bool[collectionSize];
-                string token = Tokenize(requestPart);
-                switch (token)
-                {
-                    case "":
-                        break;
-                    case "and":
-                        doAnd = true;
-                        break;
-                    case "or":
-                        doOr = true;
-                        break;
-                    case "not":
-                        doNot = true;
-                        break;
-                    default:
-                        if (!incidenceMatrix.TryGetValue(token, out currentMatch))
-                            currentMatch = new bool[collectionSize];
-
-                        if (doNot) 
-                        {
-                            currentMatch = IncidenceMatrixNot(currentMatch);
-                            doNot = false;
-                        }
-
-                        if (!doAnd && !doOr)
-                            resultingMatch = currentMatch;
-                        else if (doAnd) 
-                        {
-                            resultingMatch = IncidenceMatrixAnd(resultingMatch, currentMatch);
-                            doAnd = false;
-                        }
-                        else if (doOr) 
-                        { 
-                            resultingMatch = IncidenceMatrixOr(resultingMatch, currentMatch);
-                            doOr = false;
-                        };
-                        break;
-                }
-            }
-            
-            IncidenceMatrixPrintResults(resultingMatch);
-        }
-
-        private static void InvertedIndexSearch(string request)
-        {
-            bool doOr = false;
-            bool doAnd = false;
-
-            bool doNot = false;
-            List<int> resultingMatch = new List<int>();
+            bool or = false;
+            bool and = false;
+            bool not = false;
+            bool[] searchResult = new bool[collectionSize];
 
             string[] requestParts = request.Split(' ');
             foreach (string requestPart in requestParts)
@@ -214,52 +159,97 @@ namespace Dictionary
                     case "":
                         break;
                     case "and":
-                        doAnd = true;
+                        and = true;
                         break;
                     case "or":
-                        doOr = true;
+                        or = true;
                         break;
                     case "not":
-                        doNot = true;
+                        not = true;
                         break;
                     default:
-                        List<int> currentMatch = new List<int>(invertedIndex[token]);
-
-                        if (doNot)
+                        bool[] currentMatch = new bool[collectionSize];
+                        try
                         {
-                            //currentMatch = InvertedIndexesNot(currentMatch);
-                            currentMatch = fileCollection.Keys.Except(currentMatch).ToList();
-                            //List<int> tempList = fileCollection.Keys.Except(currentMatch).ToList();
-                            //currentMatch.Clear();
-                            //currentMatch = tempList;
-                            doNot = false;
+                            for (int i = 0; i < collectionSize; i++)
+                                currentMatch[i] = incidenceMatrix[token][i];
                         }
+                        catch
+                        { }
 
-                        if (!doAnd && !doOr)
-                            resultingMatch = currentMatch;
-                        else if (doAnd)
-                        {
-                            //resultingMatch = InvertedIndexesAnd(resultingMatch, currentMatch);
-                            resultingMatch = resultingMatch.Intersect(currentMatch).ToList();
-                            //List<int> tempList = resultingMatch.Intersect(currentMatch).ToList();
-                            //resultingMatch.Clear();
-                            //resultingMatch = tempList;
-                            doAnd = false;
-                        }
-                        else if (doOr)
-                        {
-                            //resultingMatch = InvertedIndexesOr(resultingMatch, currentMatch);
-                            resultingMatch = resultingMatch.Union(currentMatch).ToList();
-                            //List<int> tempList = resultingMatch.Union(currentMatch).ToList();
-                            //resultingMatch.Clear();
-                            //resultingMatch = tempList;
-                            doOr = false;
-                        };
+                        if (not)
+                            currentMatch = currentMatch.Select(x => !x).ToArray();
+
+                        if (!and && !or)
+                            searchResult = currentMatch;
+                        else if (and)
+                            searchResult = searchResult.SelectMany(x => currentMatch, (x, y) => x && y).ToArray();
+                        else if (or)
+                            searchResult = searchResult.SelectMany(x => currentMatch, (x, y) => x || y).ToArray();
+
+                        or = false;
+                        and = false;
+                        not = false;
                         break;
                 }
             }
 
-            InvertedIndexPrintResults(resultingMatch);
+            IncidenceMatrixPrintResults(searchResult);
+        }
+
+        private static void InvertedIndexSearch(string request)
+        {
+            bool or = false;
+            bool and = false;
+            bool not = false;
+            List<int> searchResult = new List<int>();
+
+            string[] requestParts = request.Split(' ');
+            foreach (string requestPart in requestParts)
+            {
+                string token = Tokenize(requestPart);
+                switch (token)
+                {
+                    case "":
+                        break;
+                    case "and":
+                        and = true;
+                        break;
+                    case "or":
+                        or = true;
+                        break;
+                    case "not":
+                        not = true;
+                        break;
+                    default:
+                        List<int> currentMatch;
+                        try
+                        {
+                            currentMatch = new List<int>(invertedIndex[token]);
+                        }
+                        catch
+                        {
+                            currentMatch = new List<int>();
+                        }
+
+                        if (not)
+                            currentMatch = fileCollection.Keys.Except(currentMatch).ToList();
+
+                        if (!and && !or)
+                            searchResult = currentMatch;
+                        else if (and)
+                            searchResult = searchResult.Intersect(currentMatch).ToList();
+                        else if (or)
+                            searchResult = searchResult.Union(currentMatch).ToList();
+
+                        or = false;
+                        and = false;
+                        not = false;
+                        break;
+                }
+            }
+
+            InvertedIndexPrintResults(searchResult);
         }
 
 
